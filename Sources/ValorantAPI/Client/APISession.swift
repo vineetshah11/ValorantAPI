@@ -128,6 +128,35 @@ extension APISession {
 		self.cookies = client.cookies().map(Cookie.init)
 	}
 	
+	public init(
+		webAccessToken: String,
+		idToken: String,
+		expiresIn: Int,
+		urlSessionOverride: URLSession? = nil
+	) async throws {
+		self.credentials = .init()
+		let token = AccessToken(
+			type: "Bearer",
+			token: webAccessToken,
+			idToken: idToken,
+			expiration: Date(timeIntervalSinceNow: TimeInterval(expiresIn) - 30)
+		)
+		self.accessToken = token
+		
+		var client = await AuthClient(urlSessionOverride: urlSessionOverride)
+		client.accessToken = token
+		
+		let constClient = client
+		async let entitlement = constClient.getEntitlementsToken()
+		async let userID = constClient.getUserID()
+		async let location = constClient.getLocation(using: token)
+		self.entitlementsToken = try await entitlement
+		self.userID = try await userID
+		self.location = try await location
+		
+		self.cookies = client.cookies().map(Cookie.init)
+	}
+	
 	mutating func refreshAccessToken(multifactorHandler: MultifactorHandler?) async throws {
 		let client = await AuthClient()
 		client.setCookies(cookies.map(\.httpCookie))
